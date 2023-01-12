@@ -11,12 +11,12 @@ class CardService {
   generarMazo() {
     this.descarte = [];
     this.mazo = [];
-    this.mazo.push({ comodin: "" });
-    this.mazo.push({ comodin: "" });
+    this.mazo.push({ valor: "", palo: "comodin" });
+    this.mazo.push({ valor: "", palo: "comodin" });
     for (let i = 0; i < 4; i++) {
       let palo = this.palos[i];
       for (let j = 0; j < 12; j++) {
-        this.mazo.push({ [palo]: j + 1 });
+        this.mazo.push({ valor: j + 1, palo });
       }
     }
   }
@@ -38,12 +38,11 @@ class CardService {
     this.carta = index;
     // Chequear si no quedan cartas desde el servidor
     if(this.mazo.length === 0) {
-      generarMazo();
+      this.mazo = this.descarte;
       return;
     }
-
-    const valor = Object.values(this.mazo[this.carta])[0];
-    const palo = Object.keys(this.mazo[this.carta])[0];
+    const valor = this.mazo[this.carta].valor;
+    const palo = this.mazo[this.carta].palo;
     this.mazo.splice(index, 1);
 
     return {valor, palo}

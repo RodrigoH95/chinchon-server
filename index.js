@@ -11,7 +11,7 @@ const io = require("socket.io")(server, {
 
 let players = [];
 const cardManager = new CardService();
-
+let turn = null;
 
 io.on("connection", (socket) => {
   if (players.length === 2) return; // temporal para no llenar la sala con mas de 2 jugadores
@@ -25,11 +25,12 @@ io.on("connection", (socket) => {
     
     io.emit("match-start");
     players.forEach((player) => (player.cards = []));
+    turn = Math.floor(Math.random() * players.length);
+    console.log("Turno", turn);
     repartirCartas(cardManager);
   }
 
   function repartirCartas(cardManager) {
-    let turn = 1;
     let cards = 14;
     cardManager.generarMazo();
     const interval = setInterval(() => {
@@ -43,13 +44,14 @@ io.on("connection", (socket) => {
         const descarta = cardManager.drawOneCard();
         io.emit("descarta", descarta);
         cardManager.descartar(descarta);
+        io.to(players[(Number(turn))].id).emit("turno");
       }
     }, 300);
   }
 
   socket.on("toma-carta", () => {
     if(cardManager.getMazo().length === 0) {
-      
+      cardManager.drawOneCard();
       io.emit("no-cards");
       return;
     };
@@ -69,6 +71,11 @@ io.on("connection", (socket) => {
     io.emit("eliminar-descarte");
     io.to(socket.id).emit("recibe-carta", carta);
     socket.broadcast.emit("oponente-recibe", carta);
+  })
+
+  socket.on("finaliza-turno", () => {
+    turn = !turn;
+    io.to(players[(Number(turn))].id).emit("turno");
   })
 
   socket.on("disconnecting", (reason) => {  
