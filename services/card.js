@@ -10,6 +10,7 @@ class CardService {
 
   generarMazo() {
     this.descarte = [];
+    this.mazo = [];
     this.mazo.push({ comodin: "" });
     this.mazo.push({ comodin: "" });
     for (let i = 0; i < 4; i++) {

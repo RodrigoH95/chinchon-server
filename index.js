@@ -71,12 +71,11 @@ io.on("connection", (socket) => {
     socket.broadcast.emit("oponente-recibe", carta);
   })
 
-  socket.on("disconnecting", (reason) => {
-    
+  socket.on("disconnecting", (reason) => {  
     players = players.filter((player) => player.id !== socket.id);
   });
 });
 
 server.listen(3000, () => {
-  
+  console.log("Running on port", 3000);
 });
