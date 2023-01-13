@@ -83,14 +83,13 @@ io.on("connection", (socket) => {
     }
   });
 
-  socket.on("descarta", (carta, index) => {
+  socket.on("descarta", (carta, index, corta = false) => {
     cardManager.descartar(carta);
     //index representa la ubicacion en el DOM de la carta vista desde el lado del oponente
-    socket.broadcast.emit("descarta", carta, index);
+    socket.broadcast.emit("descarta", carta, index, corta);
     const player = players.find(player => player.id === socket.id);
-  
     player.cards = player.cards.filter(playerCard => JSON.stringify(playerCard) !== JSON.stringify(carta));
-  
+    player.cards.forEach(card => console.log(card));
   });
 
   socket.on("toma-descarte", () => {
@@ -104,6 +103,16 @@ io.on("connection", (socket) => {
     const id = getId(Number(turn));
     io.emit("turno", id);
   });
+
+  socket.on("finaliza-ronda", () => {
+    console.log("Servidor comienza a calcular resultados");
+    console.log("Mazos finales:");
+    players.map(player => {
+      console.log("--------------");
+      return player.cards
+    }).forEach(card => console.log(card))
+    io.emit("finaliza-ronda");
+  })
 
   socket.on("disconnecting", (reason) => {
     players = players.filter((player) => player.id !== socket.id);
