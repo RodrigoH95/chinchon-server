@@ -39,6 +39,7 @@ class CardService {
     // Chequear si no quedan cartas desde el servidor
     if(this.mazo.length === 0) {
       this.mazo = this.descarte;
+      this.descarte = [];
       return;
     }
     const valor = this.mazo[this.carta].valor;

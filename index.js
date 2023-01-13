@@ -13,72 +13,99 @@ let players = [];
 const cardManager = new CardService();
 let turn = null;
 
+function getId(index) {
+  const id = players[index].id;
+  return String(id);
+}
+
+function repartirCartas(cardManager) {
+  let cards = 14;
+  cardManager.generarMazo();
+  const interval = setInterval(() => {
+    let carta = cardManager.drawOneCard();
+    io.to(getId(Number(turn))).emit("recibe-carta", carta);
+    io.to(getId(Number(!turn))).emit("oponente-recibe", carta);
+    agregarCartaAJugador(getId(Number(turn)), carta);
+    turn = !turn;
+    cards--;
+    if (cards === 0) {
+      const id = getId(Number(turn));
+      clearInterval(interval);
+      const cartaInicial = cardManager.drawOneCard();
+      io.emit("descarta", cartaInicial);
+      cardManager.descartar(cartaInicial);
+      io.emit("turno", id);
+    }
+  }, 300);
+}
+
+function iniciarPartida() {
+  io.emit("match-start");
+  players.forEach((player) => (player.cards = []));
+  turn = Math.floor(Math.random() * players.length);
+
+  repartirCartas(cardManager);
+}
+
+function jugadorRecibeCarta(socket, carta) {
+  io.to(socket.id).emit("recibe-carta", carta);
+  socket.broadcast.emit("oponente-recibe", carta);
+  agregarCartaAJugador(socket.id, carta);
+}
+
+function agregarCartaAJugador(id, carta) {
+  players.find(player => player.id === id).cards.push(carta);
+}
+
 io.on("connection", (socket) => {
   if (players.length === 2) return; // temporal para no llenar la sala con mas de 2 jugadores
-  
-  const player = {
-    id: socket.id,
-    cards: [],
-  };
-  players.push(player);
-  if (players.length >= 2) {
-    
-    io.emit("match-start");
-    players.forEach((player) => (player.cards = []));
-    turn = Math.floor(Math.random() * players.length);
-    console.log("Turno", turn);
-    repartirCartas(cardManager);
-  }
 
-  function repartirCartas(cardManager) {
-    let cards = 14;
-    cardManager.generarMazo();
-    const interval = setInterval(() => {
-      let carta = cardManager.drawOneCard();
-      io.to(players[Number(!turn)].id).emit("recibe-carta", carta);
-      io.to(players[Number(turn)].id).emit("oponente-recibe", carta);
-      turn = !turn;
-      cards--;
-      if (cards === 0) {
-        clearInterval(interval);
-        const descarta = cardManager.drawOneCard();
-        io.emit("descarta", descarta);
-        cardManager.descartar(descarta);
-        io.to(players[(Number(turn))].id).emit("turno");
-      }
-    }, 300);
-  }
+  socket.on("user-join", (name) => {
+    const player = {
+      id: socket.id,
+      name,
+      cards: [],
+    };
+    players.push(player);
+
+    io.emit("other-join", players);
+    if (players.length >= 2) {
+      iniciarPartida();
+    }
+  });
 
   socket.on("toma-carta", () => {
-    if(cardManager.getMazo().length === 0) {
-      cardManager.drawOneCard();
-      io.emit("no-cards");
-      return;
-    };
     const carta = cardManager.drawOneCard();
-    io.to(socket.id).emit("recibe-carta", carta);
-    socket.broadcast.emit("oponente-recibe", carta);
-  })
+    jugadorRecibeCarta(socket, carta);
+    if (cardManager.getMazo().length === 0) {
+      io.emit("no-cards");
+      cardManager.drawOneCard();
+    }
+  });
 
-  socket.on("descarta", (id, carta, index) => {
-    
+  socket.on("descarta", (carta, index) => {
     cardManager.descartar(carta);
+    //index representa la ubicacion en el DOM de la carta vista desde el lado del oponente
     socket.broadcast.emit("descarta", carta, index);
-  })
+    const player = players.find(player => player.id === socket.id);
+  
+    player.cards = player.cards.filter(playerCard => JSON.stringify(playerCard) !== JSON.stringify(carta));
+  
+  });
 
   socket.on("toma-descarte", () => {
-    const carta = cardManager.descarte.pop()
+    const carta = cardManager.descarte.pop();
     io.emit("eliminar-descarte");
-    io.to(socket.id).emit("recibe-carta", carta);
-    socket.broadcast.emit("oponente-recibe", carta);
-  })
+    jugadorRecibeCarta(socket, carta);
+  });
 
   socket.on("finaliza-turno", () => {
     turn = !turn;
-    io.to(players[(Number(turn))].id).emit("turno");
-  })
+    const id = getId(Number(turn));
+    io.emit("turno", id);
+  });
 
-  socket.on("disconnecting", (reason) => {  
+  socket.on("disconnecting", (reason) => {
     players = players.filter((player) => player.id !== socket.id);
   });
 });
