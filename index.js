@@ -129,13 +129,15 @@ io.on("connection", (socket) => {
     setTimeout(() => {
       nuevaRonda();
     }, 1500);
-  })
+  });
 
   socket.on("disconnect", (reason) => {
-    if(reason === "io client disconnect") {
-      players = players.filter((player) => player.id !== socket.id);
-      console.log("player leaves");
-    }
+    setTimeout(() => {
+      if(!socket.connected) {
+        players = players.filter((player) => player.id !== socket.id);
+        console.log(socket.id, "disconnected:", reason)
+      }
+    }, 5000);
   });
 });
 
