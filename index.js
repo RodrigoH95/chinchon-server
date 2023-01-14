@@ -132,8 +132,10 @@ io.on("connection", (socket) => {
   })
 
   socket.on("disconnect", (reason) => {
-    console.log(socket.id, "leaves", reason);
-    players = players.filter((player) => player.id !== socket.id);
+    if(reason === "io client disconnect") {
+      players = players.filter((player) => player.id !== socket.id);
+      console.log("player leaves");
+    }
   });
 });
 
