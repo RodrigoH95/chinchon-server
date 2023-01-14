@@ -2,6 +2,7 @@ const express = require("express");
 const app = express();
 const server = require("http").createServer(app);
 const CardService = require("./services/card");
+const Calculadora = require("./calculadora");
 
 const io = require("socket.io")(server, {
   cors: {
@@ -14,6 +15,7 @@ const cardManager = new CardService();
 let turn = null;
 
 function getId(index) {
+  if(!players[index]) return;
   const id = players[index].id;
   return String(id);
 }
@@ -47,6 +49,13 @@ function iniciarPartida() {
   repartirCartas(cardManager);
 }
 
+function nuevaRonda() {
+  io.emit("round-start");
+  players.forEach((player) => (player.cards = []));
+  turn = !turn;
+  repartirCartas(cardManager);
+}
+
 function jugadorRecibeCarta(socket, carta) {
   io.to(socket.id).emit("recibe-carta", carta);
   socket.broadcast.emit("oponente-recibe", carta);
@@ -65,6 +74,7 @@ io.on("connection", (socket) => {
       id: socket.id,
       name,
       cards: [],
+      puntaje: 0,
     };
     players.push(player);
 
@@ -89,7 +99,6 @@ io.on("connection", (socket) => {
     socket.broadcast.emit("descarta", carta, index, corta);
     const player = players.find(player => player.id === socket.id);
     player.cards = player.cards.filter(playerCard => JSON.stringify(playerCard) !== JSON.stringify(carta));
-    player.cards.forEach(card => console.log(card));
   });
 
   socket.on("toma-descarte", () => {
@@ -106,15 +115,24 @@ io.on("connection", (socket) => {
 
   socket.on("finaliza-ronda", () => {
     console.log("Servidor comienza a calcular resultados");
-    console.log("Mazos finales:");
-    players.map(player => {
-      console.log("--------------");
-      return player.cards
-    }).forEach(card => console.log(card))
-    io.emit("finaliza-ronda");
+    players.forEach(player => {
+      console.log("Puntaje de", player.name, ":", Calculadora.calcular(player.cards));
+    })
+    const puntajes = [];
+    players.forEach(player => {
+      puntajes.push({
+        id: player.id,
+        puntaje: player.puntaje + Calculadora.calcular(player.cards),
+      })
+    })
+    io.emit("finaliza-ronda", puntajes);
+    setTimeout(() => {
+      nuevaRonda();
+    }, 1500);
   })
 
-  socket.on("disconnecting", (reason) => {
+  socket.on("disconnect", (reason) => {
+    console.log(socket.id, "leaves", reason);
     players = players.filter((player) => player.id !== socket.id);
   });
 });
